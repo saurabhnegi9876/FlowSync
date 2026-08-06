@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {Link} from "react-router-dom"
+import { api } from "../services/axios";
 /**
  * FlowSync — Signup page
  * Self-contained, responsive React/TypeScript component.
@@ -38,18 +39,6 @@ const BENEFITS = [
   { tone: "done", text: "Comments and decisions kept right on the card" },
 ] as const;
 
-async function defaultSignupRequest(data: {
-  fullName: string;
-  email: string;
-  password: string;
-}): Promise<SignupResult> {
-  await new Promise((r) => setTimeout(r, 900));
-  if (data.email.trim().toLowerCase() === "taken@flowsync.io") {
-    return { success: false, message: "An account with this email already exists." };
-  }
-  return { success: true };
-}
-
 function getPasswordStrength(password: string): {
   score: 0 | 1 | 2 | 3;
   label: string;
@@ -67,7 +56,6 @@ function getPasswordStrength(password: string): {
 }
 
 export default function SignupPage({
-  onSubmit = defaultSignupRequest,
   onNavigateHome,
   onNavigateToLogin,
 }: SignupPageProps): React.JSX.Element {
@@ -142,15 +130,29 @@ export default function SignupPage({
 
     setSubmitting(true);
     try {
-      const result = await onSubmit({ fullName: fullName.trim(), email: email.trim(), password });
+      const response = await api.post("/api/auth/signup", {
+  name: fullName.trim(),
+  email: email.trim(),
+  password,
+  confirmPassword,
+});
+
+const result = response.data;
       if (result.success) {
         setSubmitted(true);
       } else {
         setFormError(result.message ?? "Something went wrong. Please try again.");
       }
-    } catch {
-      setFormError("We couldn't reach FlowSync. Check your connection and try again.");
-    } finally {
+    } catch (error: any) {
+  console.log(error);
+  console.log(error.response);
+  console.log(error.response?.data);
+
+  setFormError(
+    error.response?.data?.message || error.message
+  );
+}
+     finally {
       setSubmitting(false);
     }
   }

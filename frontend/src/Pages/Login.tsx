@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {Link} from  "react-router-dom"
+import { api } from "../services/axios";
 /**
  * FlowSync — Login page
  * Self-contained, responsive React/TypeScript component.
@@ -17,8 +18,6 @@ type AuthResult = { success: boolean; message?: string };
 export interface LoginPageProps {
   /** Called when the user submits valid credentials. Defaults to a demo
    *  implementation so the page works standalone without a backend. */
-  onSubmit?: (email: string, password: string) => Promise<AuthResult>;
-  /** Called when the user clicks the FlowSync logo. */
   onNavigateHome?: () => void;
   /** Called when the user clicks "Sign up". */
   onNavigateToSignup?: () => void;
@@ -30,17 +29,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_SECONDS = 30;
 
-async function defaultLoginRequest(email: string, _password: string): Promise<AuthResult> {
-  // Demo network delay
-  await new Promise((r) => setTimeout(r, 900));
-  if (email.trim().toLowerCase() === "test@fail.com") {
-    return { success: false, message: "Incorrect email or password." };
-  }
-  return { success: true };
-}
-
 export default function LoginPage({
-  onSubmit = defaultLoginRequest,
   onNavigateHome,
   onNavigateToSignup,
   onNavigateToForgotPassword,
@@ -96,24 +85,36 @@ export default function LoginPage({
 
     setSubmitting(true);
     try {
-      const result = await onSubmit(email.trim(), password);
-      if (result.success) {
-        setFormError(null);
-        setAttempts(0);
-        // In a real app this would redirect. Here we just surface success.
-        setFormError("__success__");
-      } else {
-        const nextAttempts = attempts + 1;
-        setAttempts(nextAttempts);
-        if (nextAttempts >= MAX_ATTEMPTS) {
-          setLockoutRemaining(LOCKOUT_SECONDS);
-          setFormError(
-            `Too many failed attempts. Try again in ${LOCKOUT_SECONDS} seconds.`
-          );
-        } else {
-          setFormError(result.message ?? "Something went wrong. Please try again.");
-        }
-      }
+      try {
+  const response = await api.post("/api/auth/login", {
+    email: email.trim(),
+    password,
+  });
+
+  const result = response.data;
+
+  if (result.success) {
+    setFormError(null);
+    setAttempts(0);
+    setFormError("__success__");
+  }
+} catch (error: any) {
+  const nextAttempts = attempts + 1;
+  setAttempts(nextAttempts);
+
+  if (nextAttempts >= MAX_ATTEMPTS) {
+    setLockoutRemaining(LOCKOUT_SECONDS);
+    setFormError(
+      `Too many failed attempts. Try again in ${LOCKOUT_SECONDS} seconds.`
+    );
+  } else {
+    setFormError(
+      error.response?.data?.message || "Login failed"
+    );
+  }
+} finally {
+  setSubmitting(false);
+}
     } catch {
       setFormError("We couldn't reach FlowSync. Check your connection and try again.");
     } finally {

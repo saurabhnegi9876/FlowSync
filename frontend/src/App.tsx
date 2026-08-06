@@ -1,4 +1,4 @@
-import './App.css'
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import FlowSyncLanding from "./Pages/Homepage"
 import LoginPage from './Pages/Login'
